@@ -1,22 +1,28 @@
 <# :
 @echo off
 chcp 65001 > nul
+set "SCRIPT_PATH=%~f0"
+
 if "%1"=="--startup" goto :startup
 
-:: Запуск PowerShell кода
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ((Get-Content '%~f0') -join [Environment]::NewLine)"
-if %errorlevel% neq 0 pause
+powershell -NoProfile -ExecutionPolicy Bypass -Command "[System.IO.File]::ReadAllText($env:SCRIPT_PATH) | Out-String | Invoke-Expression"
+
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] Script failed to launch. 
+    pause
+)
 exit /b
 
 :startup
-powershell -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\EquiLauncher.lnk');$s.TargetPath='%~f0';$s.WindowStyle=7;$s.Save()"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\EquiLauncher.lnk');$s.TargetPath='%~f0';$s.WindowStyle=7;$s.Save()"
 exit /b
 #>
 
 try {
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
     
-    # Красивый ASCII-логотип
+    # Красивый логотип
     $logo = @"
     
     ███████╗ ██████╗ ██╗   ██╗██╗███████╗████████╗ █████╗ ██████╗ ████████╗
@@ -29,9 +35,9 @@ try {
     Write-Host $logo -ForegroundColor Yellow
     Write-Host "`n--- Professional Equicord Launcher ---`n" -ForegroundColor Gray
 
-    # 1. Поиск папки
-    $AppFolder = Get-ChildItem -Path "$env:LOCALAPPDATA\Discord\app-*" | Select-Object -First 1 -ExpandProperty FullName
-    if (-not $AppFolder) { throw "Discord folder not found!" }
+    # 1. Поиск папки (более гибкий)
+    $AppFolder = Get-ChildItem -Path "$env:LOCALAPPDATA\Discord\app-*" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
+    if (-not $AppFolder) { throw "Discord folder not found! Please make sure Discord is installed." }
 
     # 2. Определение пути к ядру
     $PossiblePaths = @(
@@ -44,7 +50,7 @@ try {
         $Full = Join-Path $AppFolder $P
         if (Test-Path $Full) { $IndexPath = $Full; break }
     }
-    if (-not $IndexPath) { throw "Could not find index.js in Discord modules!" }
+    if (-not $IndexPath) { throw "Could not find index.js. Try running Discord once and then this script." }
 
     # 3. Проверка и патч
     if ((Get-Content $IndexPath -Raw) -notmatch "Equicord|Vencord") {
@@ -55,8 +61,9 @@ try {
         $Exe = Join-Path $WorkDir "VencordInstallerCli.exe"
         
         if (-not (Test-Path $Exe)) {
-            Write-Host "[*] Downloading engine..." -ForegroundColor Cyan
-            (New-Object System.Net.WebClient).DownloadFile("https://github.com/Vencord/Installer/releases/latest/download/VencordInstallerCli.exe", $Exe)
+            Write-Host "[*] Downloading engine via curl..." -ForegroundColor Cyan
+            # Используем curl.exe, так как он есть везде в Win10/11 и работает стабильнее
+            curl.exe -L "https://github.com/Vencord/Installer/releases/latest/download/VencordInstallerCli.exe" -o $Exe
         }
 
         Write-Host "[*] Patching Discord... (In this window)" -ForegroundColor Cyan
