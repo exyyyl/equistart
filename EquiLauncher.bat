@@ -2,6 +2,11 @@
 title EquiLauncher
 chcp 65001 > nul
 set "SCRIPT_PATH=%~f0"
+set "LOG_PATH=%~dp0EquiLauncher_Debug.log"
+
+echo [*] Starting EquiLauncher > "%LOG_PATH%"
+echo [*] Script Path: %SCRIPT_PATH% >> "%LOG_PATH%"
+echo [*] Date: %DATE% %TIME% >> "%LOG_PATH%"
 
 if "%1"=="--startup" (
     echo [*] Adding EquiLauncher to Windows Startup...
@@ -12,16 +17,17 @@ if "%1"=="--startup" (
 )
 
 echo [*] Starting engine...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-Content -LiteralPath $env:SCRIPT_PATH | Select-Object -Skip 18 | Out-String | Invoke-Expression"
+echo [*] Launching PowerShell Engine... >> "%LOG_PATH%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$script = Get-Content -LiteralPath $env:SCRIPT_PATH -Raw; $code = ($script -split '<# POWERSHELL_CODE #>')[1]; Invoke-Command -ScriptBlock ([scriptblock]::Create($code)) *>&1 | Tee-Object -FilePath $env:LOG_PATH -Append"
 
 if %errorlevel% neq 0 (
     echo.
-    echo [!] Critical Error: PowerShell engine failed.
+    echo [!] Critical Error: PowerShell engine failed. Check EquiLauncher_Debug.log
     pause
 )
 exit /b
 
-# --- POWERSHELL CODE STARTS HERE (LINE 19) ---
+<# POWERSHELL_CODE #>
 try {
     [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
     
