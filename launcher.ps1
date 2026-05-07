@@ -8,21 +8,21 @@ function Install-Equicord {
     $Index = Get-ChildItem -Path $AppFolder -Recurse -File -Filter "index.js" | Where-Object { $_.FullName -match "discord_desktop_core" } | Select-Object -First 1
     if (-not $Index) { throw "Could not find index.js in Discord modules." }
 
-    if ((Get-Content $Index.FullName -Raw) -notmatch "Equicord|Vencord") {
+    if ((Get-Content $Index.FullName -Raw) -notmatch "Equicord") {
         Write-Host "[!] Patch missing. Recovering..." -ForegroundColor Magenta
         
         $WorkDir = Join-Path $env:LOCALAPPDATA "EquiLauncher"
         if (-not (Test-Path $WorkDir)) { New-Item -ItemType Directory -Path $WorkDir | Out-Null }
-        $Exe = Join-Path $WorkDir "VencordInstallerCli.exe"
+        $Exe = Join-Path $WorkDir "EquilotlCli.exe"
         
         if (-not (Test-Path $Exe)) {
             Write-Host "[*] Downloading installer..." -ForegroundColor Cyan
-            Start-BitsTransfer -Source "https://github.com/Vencord/Installer/releases/latest/download/VencordInstallerCli.exe" -Destination $Exe
+            Start-BitsTransfer -Source "https://github.com/Equicord/Equilotl/releases/latest/download/EquilotlCli.exe" -Destination $Exe
         }
 
         if (Get-Process -Name "Discord" -ErrorAction SilentlyContinue) { Stop-Process -Name "Discord" -Force; Start-Sleep 1 }
         
-        & $Exe install -branch stable -type equicord -location "$AppFolder" -no-confirm
+        & $Exe -install -branch stable
     }
     else {
         Write-Host "[+] Status: Patched & Ready" -ForegroundColor Green
