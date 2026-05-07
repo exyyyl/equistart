@@ -4,25 +4,59 @@ chcp 65001 > nul
 set "SCRIPT_PATH=%~f0"
 set "LOG_PATH=%~dp0EquiLauncher_Debug.log"
 
+if "%1"=="--silent" goto RUN_NORMAL
+if "%1"=="--startup" goto ADD_STARTUP_ARG
+
+:MENU
+cls
+echo =========================================
+echo         Equicord Launcher Menu
+echo =========================================
+echo 1. Запустить Equicord
+echo 2. Запустить в режиме отладки (с созданием лога)
+echo 3. Добавить в автозагрузку (запуск при старте ПК)
+echo 4. Выход
+echo =========================================
+set /p choice="Выберите действие (1-4): "
+
+if "%choice%"=="1" goto RUN_NORMAL
+if "%choice%"=="2" goto RUN_DEBUG
+if "%choice%"=="3" goto ADD_STARTUP
+if "%choice%"=="4" exit /b
+goto MENU
+
+:ADD_STARTUP_ARG
+echo [*] Добавление EquiLauncher в автозагрузку...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\EquiLauncher.lnk');$s.TargetPath='%~f0';$s.Arguments='--silent';$s.WindowStyle=7;$s.Save()"
+echo [+] Готово!
+timeout /t 3 > nul
+exit /b
+
+:ADD_STARTUP
+echo [*] Добавление EquiLauncher в автозагрузку...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\EquiLauncher.lnk');$s.TargetPath='%~f0';$s.Arguments='--silent';$s.WindowStyle=7;$s.Save()"
+echo [+] Готово! Ярлык добавлен. При следующем запуске ПК Equicord запустится автоматически.
+pause
+goto MENU
+
+:RUN_NORMAL
+cls
+echo [*] Запуск Equicord...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$script = Get-Content -LiteralPath $env:SCRIPT_PATH -Raw; $code = ($script -split '<# POWERSHELL_CODE #>')[1]; Invoke-Command -ScriptBlock ([scriptblock]::Create($code))"
+if %errorlevel% neq 0 pause
+exit /b
+
+:RUN_DEBUG
+cls
+echo [*] Запуск в режиме отладки...
 echo [*] Starting EquiLauncher > "%LOG_PATH%"
 echo [*] Script Path: %SCRIPT_PATH% >> "%LOG_PATH%"
 echo [*] Date: %DATE% %TIME% >> "%LOG_PATH%"
-
-if "%1"=="--startup" (
-    echo [*] Adding EquiLauncher to Windows Startup...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\EquiLauncher.lnk');$s.TargetPath='%~f0';$s.WindowStyle=7;$s.Save()"
-    echo [+] Done!
-    timeout /t 3
-    exit /b
-)
-
-echo [*] Starting engine...
 echo [*] Launching PowerShell Engine... >> "%LOG_PATH%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$script = Get-Content -LiteralPath $env:SCRIPT_PATH -Raw; $code = ($script -split '<# POWERSHELL_CODE #>')[1]; Invoke-Command -ScriptBlock ([scriptblock]::Create($code)) *>&1 | Tee-Object -FilePath $env:LOG_PATH -Append"
-
 if %errorlevel% neq 0 (
     echo.
-    echo [!] Critical Error: PowerShell engine failed. Check EquiLauncher_Debug.log
+    echo [!] Ошибка! Подробности сохранены в %LOG_PATH%
     pause
 )
 exit /b
