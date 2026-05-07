@@ -1,7 +1,7 @@
 @echo off
 set "SCRIPT_PATH=%~f0"
 set "SCRIPT_ARG=%~1"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=Get-Content -LiteralPath $env:SCRIPT_PATH -Raw; Invoke-Command -ScriptBlock ([scriptblock]::Create(($s -split '<# POWERSHELL_CODE #>')[1]))"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=Get-Content -LiteralPath $env:SCRIPT_PATH -Raw -Encoding UTF8; Invoke-Command -ScriptBlock ([scriptblock]::Create(($s -split ('<#' + ' POWERSHELL_CODE #>'))[1]))"
 exit /b
 
 <# POWERSHELL_CODE #>
@@ -89,17 +89,16 @@ if ($env:SCRIPT_ARG -eq "--silent" -or $env:SCRIPT_ARG -eq "--startup") {
 
 while ($true) {
     Clear-Host
-    $logo = @"
-    
-     _____ ____  _   _ _____  _____ _______       _____ _______ 
-    |  ____/ __ \| | | |_   _|/ ____|__   __|/\   |  __ \__   __|
-    | |__ | |  | | | | | | | | (___    | |  /  \  | |__) | | |   
-    |  __|| |  | | | | | | |  \___ \   | | / /\ \ |  _  /  | |   
-    | |___| |__| | |_| |_| |_ ____) |  | |/ ____ \| | \ \  | |   
-    |______\___\_\\___/|_____|_____/   |_/_/    \_\_|  \_\ |_|   
-"@
+    $logo = @(
+        ' ',
+        ' _____ ____  _   _ _____  _____ _______       _____ _______ ',
+        '|  ____/ __ \| | | |_   _|/ ____|__   __|/\   |  __ \__   __|',
+        '| |__ | |  | | | | | | | | (___    | |  /  \  | |__) | | |   ',
+        '|  __|| |  | | | | | | |  \___ \   | | / /\ \ |  _  /  | |   ',
+        '| |___| |__| | |_| |_| |_ ____) |  | |/ ____ \| | \ \  | |   ',
+        '|______\___\_\\___/|_____|_____/   |_/_/    \_\_|  \_\ |_|   '
+    ) -join "`n"
     Write-Host $logo -ForegroundColor Yellow
-    Write-Host "`n--- Professional Equicord Launcher ---`n" -ForegroundColor Gray
     
     Write-Host "========================================="
     Write-Host "        Equicord Launcher Menu"
