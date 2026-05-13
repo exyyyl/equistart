@@ -149,6 +149,7 @@ while ($true) {
         "|______\___\_\\___/|_____|_____/   |_/_/    \_\_|  \_\ |_|   "
     ) -join "`n"
     Write-Host $logo -ForegroundColor Yellow
+    Write-Host "                              v1.0.0" -ForegroundColor Gray
     
     Write-Host "========================================="
     Write-Host "--- Запуск ---" -ForegroundColor Cyan
