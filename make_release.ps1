@@ -1,26 +1,20 @@
-$Version = "1.1.0"
+$ErrorActionPreference = "Stop"
+$Version = "1.2.0"
 $ReleaseName = "equistart-v$Version"
-$ZipFile = "$ReleaseName.zip"
 
 Write-Host "[*] Creating release v$Version..." -ForegroundColor Cyan
 
-# 1. Tagging in Git
-if (Test-Path .git) {
-    Write-Host "[*] Tagging v$Version in Git..."
-    git tag -a "v$Version" -m "Release v$Version"
-    Write-Host "[+] Tag created." -ForegroundColor Green
+function New-PlatformArchive {
+    param([string]$Platform, [string[]]$Files)
+
+    $ZipFile = "$ReleaseName-$Platform.zip"
+    Write-Host "[*] Creating archive $ZipFile..."
+    Compress-Archive -Path $Files -DestinationPath $ZipFile -Force
+    Write-Host "[+] Created: $ZipFile" -ForegroundColor Green
 }
 
-# 2. Creating Archive
-$FilesToInclude = @(
-    "EquiLauncher.bat",
-    "launcher.ps1",
-    "Add-To-Startup.bat",
-    "README.md"
-)
+New-PlatformArchive "windows" @("EquiLauncher.bat", "launcher.ps1", "Add-To-Startup.bat", "README.md")
+New-PlatformArchive "macos" @("EquiLauncher.sh", "README.md")
+New-PlatformArchive "linux" @("EquiLauncher.sh", "README.md")
 
-Write-Host "[*] Creating archive $ZipFile..."
-Compress-Archive -Path $FilesToInclude -DestinationPath $ZipFile -Force
-
-Write-Host "[+] Release archive created: $ZipFile" -ForegroundColor Green
 Write-Host "[!] Done!" -ForegroundColor Cyan
