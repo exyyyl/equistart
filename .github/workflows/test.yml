@@ -31,7 +31,8 @@ jobs:
             [ref]$errors
           ) | Out-Null
 
-          $embedded = (Get-Content "EquiLauncher.bat" -Raw) -split [regex]::Escape('<# POWERSHELL_CODE #>'), 2
+          # Windows PowerShell 5.1 otherwise reads this UTF-8 file as ANSI.
+          $embedded = (Get-Content "EquiLauncher.bat" -Raw -Encoding UTF8) -split [regex]::Escape('<# POWERSHELL_CODE #>'), 2
           if ($embedded.Count -ne 2) {
             Write-Error "Embedded PowerShell marker not found in EquiLauncher.bat"
             exit 1
