@@ -1,0 +1,48 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unix:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check shell syntax
+        run: bash -n EquiLauncher.sh make_release.sh tests/test_autostart.sh
+      - name: Test non-disruptive autostart behavior
+        run: bash tests/test_autostart.sh
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PowerShell syntax
+        shell: powershell
+        run: |
+          $errors = @()
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path "launcher.ps1"),
+            [ref]$null,
+            [ref]$errors
+          ) | Out-Null
+
+          $embedded = (Get-Content "EquiLauncher.bat" -Raw) -split [regex]::Escape('<# POWERSHELL_CODE #>'), 2
+          if ($embedded.Count -ne 2) {
+            Write-Error "Embedded PowerShell marker not found in EquiLauncher.bat"
+            exit 1
+          }
+          [System.Management.Automation.Language.Parser]::ParseInput(
+            $embedded[1],
+            [ref]$null,
+            [ref]$errors
+          ) | Out-Null
+
+          if ($errors) {
+            $errors | Format-List | Out-String | Write-Error
+            exit 1
+          }

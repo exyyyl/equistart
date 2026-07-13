@@ -6,9 +6,9 @@
 
 В релизе выберите архив для своей операционной системы:
 
-- `equistart-v1.2.0-windows.zip`
-- `equistart-v1.2.0-macos.zip`
-- `equistart-v1.2.0-linux.zip`
+- `equistart-v1.2.1-windows.zip`
+- `equistart-v1.2.1-macos.zip`
+- `equistart-v1.2.1-linux.zip`
 
 Архивы macOS и Linux содержат один и тот же кроссплатформенный shell-скрипт, но публикуются отдельно, чтобы выбор загрузки был однозначным.
 
@@ -23,6 +23,8 @@
 - **Способ 1: Интерактивный (Рекомендуемый)**: Запустите `EquiLauncher.bat` и выберите пункт 5 или 6.
 - **Способ 2: Командная строка**: Запустите `EquiLauncher.bat --silent` (для Equicord) или `EquiLauncher.bat --silent-vencord` (для Vencord).
 - **Способ 3: Вручную**: Создайте ярлык для `EquiLauncher.bat` в папке автозагрузки (`shell:startup`) с аргументом `--silent` или `--silent-vencord`.
+
+В режиме автозагрузки EquiLauncher не закрывает уже работающий Discord без разрешения. Если патч слетел, появится диалог с выбором: перезапустить Discord и восстановить мод сейчас либо отложить восстановление.
 
 ---
 
@@ -45,6 +47,8 @@
 - Нажмите пункт **5** (Equicord) или **6** (Vencord) в меню скрипта.
 - На **macOS** скрипт автоматически создаст и загрузит LaunchAgent (`~/Library/LaunchAgents/com.equilauncher.startup.plist`).
 - На **Linux** скрипт создаст стандартный Autostart Desktop Entry (`~/.config/autostart/equilauncher.desktop`).
+
+В режиме автозагрузки EquiLauncher не закрывает уже работающий Discord без разрешения. Если патч слетел, появится диалог с выбором: перезапустить Discord и восстановить мод сейчас либо отложить восстановление.
 
 ---
 

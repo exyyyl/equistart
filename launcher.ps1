@@ -1,7 +1,23 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $LogPath = Join-Path $PSScriptRoot "EquiLauncher_Debug.log"
 
+function Confirm-RestartForRepair {
+    param([string]$Mod)
+    Add-Type -AssemblyName System.Windows.Forms
+    $Message = "Мод $Mod отключился после обновления Discord.`n`nПерезапустить Discord сейчас, чтобы восстановить мод?"
+    $Result = [System.Windows.Forms.MessageBox]::Show(
+        $Message,
+        "EquiLauncher — требуется восстановление",
+        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+        [System.Windows.Forms.MessageBoxIcon]::Warning,
+        [System.Windows.Forms.MessageBoxDefaultButton]::Button2
+    )
+    return $Result -eq [System.Windows.Forms.DialogResult]::Yes
+}
+
 function Install-Equicord {
+    param([switch]$NonDisruptive)
+    $DiscordWasRunning = [bool](Get-Process -Name "Discord" -ErrorAction SilentlyContinue)
     $AppFolder = Get-ChildItem -Path "$env:LOCALAPPDATA\Discord\app-*" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
     if (-not $AppFolder) { throw "Discord folder not found!" }
 
@@ -20,7 +36,16 @@ function Install-Equicord {
             Start-BitsTransfer -Source "https://github.com/Equicord/Equilotl/releases/latest/download/EquilotlCli.exe" -Destination $Exe
         }
 
-        if (Get-Process -Name "Discord" -ErrorAction SilentlyContinue) { Stop-Process -Name "Discord" -Force; Start-Sleep 1 }
+        if ($NonDisruptive -and $DiscordWasRunning) {
+            if (-not (Confirm-RestartForRepair -Mod "Equicord")) {
+                Write-Host "[!] Repair postponed by the user." -ForegroundColor Yellow
+                return
+            }
+            Stop-Process -Name "Discord" -Force
+            Start-Sleep 1
+            $DiscordWasRunning = $false
+        }
+        elseif ($DiscordWasRunning) { Stop-Process -Name "Discord" -Force; Start-Sleep 1 }
         
         & $Exe -install -branch stable
     }
@@ -28,12 +53,16 @@ function Install-Equicord {
         Write-Host "[+] Status: Patched & Ready" -ForegroundColor Green
     }
 
-    Write-Host "[*] Launching Discord..." -ForegroundColor Blue
-    Start-Process -FilePath "$env:LOCALAPPDATA\Discord\Update.exe" -ArgumentList "--processStart Discord.exe"
-    Start-Sleep -Seconds 2
+    if (-not ($NonDisruptive -and $DiscordWasRunning)) {
+        Write-Host "[*] Launching Discord..." -ForegroundColor Blue
+        Start-Process -FilePath "$env:LOCALAPPDATA\Discord\Update.exe" -ArgumentList "--processStart Discord.exe"
+        Start-Sleep -Seconds 2
+    }
 }
 
 function Install-Vencord {
+    param([switch]$NonDisruptive)
+    $DiscordWasRunning = [bool](Get-Process -Name "Discord" -ErrorAction SilentlyContinue)
     $AppFolder = Get-ChildItem -Path "$env:LOCALAPPDATA\Discord\app-*" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
     if (-not $AppFolder) { throw "Discord folder not found!" }
 
@@ -52,7 +81,16 @@ function Install-Vencord {
             Start-BitsTransfer -Source "https://github.com/Vencord/Installer/releases/latest/download/VencordInstallerCli.exe" -Destination $Exe
         }
 
-        if (Get-Process -Name "Discord" -ErrorAction SilentlyContinue) { Stop-Process -Name "Discord" -Force; Start-Sleep 1 }
+        if ($NonDisruptive -and $DiscordWasRunning) {
+            if (-not (Confirm-RestartForRepair -Mod "Vencord")) {
+                Write-Host "[!] Repair postponed by the user." -ForegroundColor Yellow
+                return
+            }
+            Stop-Process -Name "Discord" -Force
+            Start-Sleep 1
+            $DiscordWasRunning = $false
+        }
+        elseif ($DiscordWasRunning) { Stop-Process -Name "Discord" -Force; Start-Sleep 1 }
         
         & $Exe -install -branch stable
     }
@@ -60,15 +98,17 @@ function Install-Vencord {
         Write-Host "[+] Status: Patched & Ready" -ForegroundColor Green
     }
 
-    Write-Host "[*] Launching Discord..." -ForegroundColor Blue
-    Start-Process -FilePath "$env:LOCALAPPDATA\Discord\Update.exe" -ArgumentList "--processStart Discord.exe"
-    Start-Sleep -Seconds 2
+    if (-not ($NonDisruptive -and $DiscordWasRunning)) {
+        Write-Host "[*] Launching Discord..." -ForegroundColor Blue
+        Start-Process -FilePath "$env:LOCALAPPDATA\Discord\Update.exe" -ArgumentList "--processStart Discord.exe"
+        Start-Sleep -Seconds 2
+    }
 }
 
 function Run-Normal {
-    param([string]$Mod = "Equicord")
+    param([string]$Mod = "Equicord", [switch]$NonDisruptive)
     try {
-        if ($Mod -eq "Vencord") { Install-Vencord } else { Install-Equicord }
+        if ($Mod -eq "Vencord") { Install-Vencord -NonDisruptive:$NonDisruptive } else { Install-Equicord -NonDisruptive:$NonDisruptive }
     }
     catch {
         Write-Host "`n[FATAL ERROR]: $($_.Exception.Message)" -ForegroundColor Red
@@ -129,11 +169,11 @@ function Add-Startup {
 }
 
 if ($args -contains "-Silent") {
-    Run-Normal -Mod "Equicord"
+    Run-Normal -Mod "Equicord" -NonDisruptive
     exit
 }
 elseif ($args -contains "-SilentVencord") {
-    Run-Normal -Mod "Vencord"
+    Run-Normal -Mod "Vencord" -NonDisruptive
     exit
 }
 
@@ -149,7 +189,7 @@ while ($true) {
         "|______\___\_\\___/|_____|_____/   |_/_/    \_\_|  \_\ |_|   "
     ) -join "`n"
     Write-Host $logo -ForegroundColor Yellow
-    Write-Host "                              v1.2.0" -ForegroundColor Gray
+    Write-Host "                              v1.2.1" -ForegroundColor Gray
     
     Write-Host "========================================="
     Write-Host "--- Запуск ---" -ForegroundColor Cyan

@@ -67,6 +67,30 @@ kill_discord() {
     fi
 }
 
+discord_is_running() {
+    if [ "$OS" = "Darwin" ]; then
+        pgrep -x "Discord" >/dev/null 2>&1
+    else
+        pgrep -f "[d]iscord" >/dev/null 2>&1
+    fi
+}
+
+confirm_restart_for_repair() {
+    local mod="$1"
+    local message="Мод $mod отключился после обновления Discord. Перезапустить Discord сейчас, чтобы восстановить мод?"
+
+    if [ "$OS" = "Darwin" ]; then
+        osascript -e "display dialog \"$message\" with title \"EquiLauncher — требуется восстановление\" buttons {\"Отложить\", \"Перезапустить сейчас\"} default button \"Отложить\" with icon caution" 2>/dev/null | grep -q "Перезапустить сейчас"
+    elif command -v zenity >/dev/null 2>&1; then
+        zenity --question --title="EquiLauncher — требуется восстановление" --text="$message" --ok-label="Перезапустить сейчас" --cancel-label="Отложить"
+    elif command -v kdialog >/dev/null 2>&1; then
+        kdialog --warningyesno "$message" --title "EquiLauncher — требуется восстановление" --yes-label "Перезапустить сейчас" --no-label "Отложить"
+    else
+        command -v notify-send >/dev/null 2>&1 && notify-send -u critical "EquiLauncher — требуется восстановление" "$message Откройте EquiLauncher вручную, когда будет удобно."
+        return 1
+    fi
+}
+
 # --- Helper: Launch Discord ---
 launch_discord() {
     echo -e "${BLUE}[*] Launching Discord...${NC}"
@@ -89,6 +113,11 @@ launch_discord() {
 
 # --- Install Equicord ---
 install_equicord() {
+    local non_disruptive="${1:-false}"
+    local discord_was_running=false
+    if discord_is_running; then
+        discord_was_running=true
+    fi
     local index_file
     index_file="$(find_discord_index)"
     
@@ -120,7 +149,18 @@ install_equicord() {
             chmod +x "$exe"
         fi
 
-        kill_discord
+        if [ "$discord_was_running" = "true" ]; then
+            if [ "$non_disruptive" = "true" ]; then
+                if ! confirm_restart_for_repair "Equicord"; then
+                    echo -e "${YELLOW}[!] Repair postponed by the user.${NC}"
+                    return 0
+                fi
+                kill_discord
+                discord_was_running=false
+            else
+                kill_discord
+            fi
+        fi
         
         echo -e "${CYAN}[*] Applying patch...${NC}"
         "$exe" -install -branch stable
@@ -128,11 +168,18 @@ install_equicord() {
         echo -e "${GREEN}[+] Status: Patched & Ready${NC}"
     fi
 
-    launch_discord
+    if [ "$non_disruptive" != "true" ] || [ "$discord_was_running" != "true" ]; then
+        launch_discord
+    fi
 }
 
 # --- Install Vencord ---
 install_vencord() {
+    local non_disruptive="${1:-false}"
+    local discord_was_running=false
+    if discord_is_running; then
+        discord_was_running=true
+    fi
     local index_file
     index_file="$(find_discord_index)"
     
@@ -153,7 +200,18 @@ install_vencord() {
                 unzip -o "$app_zip" -d "$WORK_DIR" > /dev/null
                 rm -f "$app_zip"
             fi
-            kill_discord
+            if [ "$discord_was_running" = "true" ]; then
+                if [ "$non_disruptive" = "true" ]; then
+                    if ! confirm_restart_for_repair "Vencord"; then
+                        echo -e "${YELLOW}[!] Repair postponed by the user.${NC}"
+                        return 0
+                    fi
+                    kill_discord
+                    discord_was_running=false
+                else
+                    kill_discord
+                fi
+            fi
             echo -e "${CYAN}[*] Opening Vencord Installer. Please click Install/Repair in the app window.${NC}"
             open "$WORK_DIR/VencordInstaller.app"
         else
@@ -164,7 +222,18 @@ install_vencord() {
                 download_file "https://github.com/Vencord/Installer/releases/latest/download/VencordInstallerCli-linux" "$exe" || return 1
                 chmod +x "$exe"
             fi
-            kill_discord
+            if [ "$discord_was_running" = "true" ]; then
+                if [ "$non_disruptive" = "true" ]; then
+                    if ! confirm_restart_for_repair "Vencord"; then
+                        echo -e "${YELLOW}[!] Repair postponed by the user.${NC}"
+                        return 0
+                    fi
+                    kill_discord
+                    discord_was_running=false
+                else
+                    kill_discord
+                fi
+            fi
             echo -e "${CYAN}[*] Applying patch...${NC}"
             "$exe" -install -branch stable
         fi
@@ -172,7 +241,8 @@ install_vencord() {
         echo -e "${GREEN}[+] Status: Patched & Ready${NC}"
     fi
 
-    if [ "$OS" != "Darwin" ] || grep -q "Vencord" "$index_file"; then
+    if { [ "$OS" != "Darwin" ] || grep -q "Vencord" "$index_file"; } && \
+       { [ "$non_disruptive" != "true" ] || [ "$discord_was_running" != "true" ]; }; then
         launch_discord
     fi
 }
@@ -180,10 +250,11 @@ install_vencord() {
 # --- Run Modes ---
 run_normal() {
     local mod="$1"
+    local non_disruptive="${2:-false}"
     if [ "$mod" = "Vencord" ]; then
-        install_vencord
+        install_vencord "$non_disruptive"
     else
-        install_equicord
+        install_equicord "$non_disruptive"
     fi
 }
 
@@ -254,12 +325,17 @@ EOF
     echo
 }
 
+# Allow behavior tests to load the functions without starting the menu.
+if [ "${EQUILAUNCHER_SOURCE_ONLY:-false}" = "true" ]; then
+    return 0 2>/dev/null || exit 0
+fi
+
 # --- CLI Arguments parsing ---
 if [ "$1" = "--silent" ] || [ "$1" = "--startup" ]; then
-    run_normal "Equicord"
+    run_normal "Equicord" true
     exit 0
 elif [ "$1" = "--silent-vencord" ]; then
-    run_normal "Vencord"
+    run_normal "Vencord" true
     exit 0
 fi
 
@@ -273,7 +349,7 @@ while true; do
     echo "|  __|| |  | | | | | | |  \___ \   | | / /\ \ |  _  /  | |   "
     echo "| |___| |__| | |_| |_| |_ ____) |  | |/ ____ \| | \ \  | |   "
     echo "|______\___\_\\___/|_____|_____/   |_/_/    \_\_|  \_\ |_|   "
-    echo -e "                              v1.2.0${NC}"
+    echo -e "                              v1.2.1${NC}"
     echo
     echo "========================================="
     echo -e "${CYAN}--- Запуск ---${NC}"

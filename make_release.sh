@@ -7,7 +7,7 @@ NC='\033[0m' # No Color
 
 set -euo pipefail
 
-VERSION="1.2.0"
+VERSION="1.2.1"
 RELEASE_NAME="equistart-v$VERSION"
 
 echo -e "${CYAN}[*] Creating release v$VERSION...${NC}"
