@@ -7,6 +7,59 @@ exit /b
 <# POWERSHELL_CODE #>
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $LogPath = Join-Path (Split-Path $env:SCRIPT_PATH) "EquiLauncher_Debug.log"
+$AppVersion = [version]"1.3.0"
+$ReleaseApiUrl = "https://api.github.com/repos/exyyyl/equistart/releases/latest"
+
+function Test-LauncherUpdate {
+    $LauncherDir = Split-Path $env:SCRIPT_PATH
+    try {
+        $Release = Invoke-RestMethod -Uri $ReleaseApiUrl -Headers @{ "User-Agent" = "EquiLauncher/$AppVersion" } -TimeoutSec 8
+        $LatestText = ([string]$Release.tag_name).TrimStart("v")
+        if ([version]$LatestText -le $AppVersion) { return }
+        Add-Type -AssemblyName System.Windows.Forms
+        $Answer = [System.Windows.Forms.MessageBox]::Show(
+            "Доступна новая версия EquiLauncher v$LatestText (установлена v$AppVersion).`n`nОбновить сейчас?",
+            "Обновление EquiLauncher",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Information,
+            [System.Windows.Forms.MessageBoxDefaultButton]::Button2
+        )
+        if ($Answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+
+        $AssetName = "equistart-v$LatestText-windows.zip"
+        $Asset = $Release.assets | Where-Object { $_.name -eq $AssetName } | Select-Object -First 1
+        if (-not $Asset) { throw "В релизе отсутствует $AssetName" }
+        $TempDir = Join-Path ([IO.Path]::GetTempPath()) ("EquiLauncherUpdate-" + [guid]::NewGuid().ToString("N"))
+        $Archive = Join-Path $TempDir $AssetName
+        $ExtractDir = Join-Path $TempDir "files"
+        New-Item -ItemType Directory -Path $ExtractDir -Force | Out-Null
+        Invoke-WebRequest -Uri $Asset.browser_download_url -OutFile $Archive -UseBasicParsing -TimeoutSec 60
+        Expand-Archive -LiteralPath $Archive -DestinationPath $ExtractDir -Force
+        if (-not (Test-Path (Join-Path $ExtractDir "EquiLauncher.bat"))) { throw "Архив обновления повреждён" }
+        $Updater = Join-Path $TempDir "update.ps1"
+        @'
+param($ParentPid, $Source, $Target, $TempDir)
+$ErrorActionPreference = "Stop"
+try {
+    Wait-Process -Id $ParentPid -ErrorAction SilentlyContinue
+    Get-ChildItem -LiteralPath $Source -File | Copy-Item -Destination $Target -Force
+    Start-Process -FilePath (Join-Path $Target "EquiLauncher.bat")
+}
+catch {
+    Add-Type -AssemblyName System.Windows.Forms
+    [System.Windows.Forms.MessageBox]::Show("Не удалось установить обновление: $($_.Exception.Message)", "EquiLauncher") | Out-Null
+}
+finally { Remove-Item -LiteralPath $TempDir -Recurse -Force -ErrorAction SilentlyContinue }
+'@ | Set-Content -LiteralPath $Updater -Encoding UTF8
+        $UpdateArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$Updater`" $PID `"$ExtractDir`" `"$LauncherDir`" `"$TempDir`""
+        Start-Process powershell.exe -ArgumentList $UpdateArgs
+        exit
+    }
+    catch {
+        Write-Host "[!] Не удалось проверить или установить обновление: $($_.Exception.Message)" -ForegroundColor Yellow
+        Write-Host "[*] Запуск текущей версии..." -ForegroundColor Gray
+    }
+}
 
 function Confirm-RestartForRepair {
     param([string]$Mod)
@@ -174,37 +227,34 @@ if ($env:SCRIPT_ARG -eq "--silent" -or $env:SCRIPT_ARG -eq "--startup") {
     exit
 }
 
+Test-LauncherUpdate
+
 while ($true) {
     Clear-Host
-    $logo = @(
-        ' ',
-        ' _____ ____  _   _ _____  _____ _______       _____ _______ ',
-        '|  ____/ __ \| | | |_   _|/ ____|__   __|/\   |  __ \__   __|',
-        '| |__ | |  | | | | | | | | (___    | |  /  \  | |__) | | |   ',
-        '|  __|| |  | | | | | | |  \___ \   | | / /\ \ |  _  /  | |   ',
-        '| |___| |__| | |_| |_| |_ ____) |  | |/ ____ \| | \ \  | |   ',
-        '|______\___\_\\___/|_____|_____/   |_/_/    \_\_|  \_\ |_|   '
-    ) -join "`n"
-    Write-Host $logo -ForegroundColor Yellow
-    Write-Host "                              v1.2.1" -ForegroundColor Gray
-    
-    Write-Host "========================================="
-    Write-Host "--- Запуск ---" -ForegroundColor Cyan
-    Write-Host "1. Запустить Equicord"
-    Write-Host "2. Запустить Vencord"
     Write-Host ""
-    Write-Host "--- Отладка ---" -ForegroundColor Yellow
-    Write-Host "3. Запустить в режиме отладки (Equicord)"
-    Write-Host "4. Запустить в режиме отладки (Vencord)"
+    Write-Host "    EQUI" -NoNewline -ForegroundColor Yellow
+    Write-Host "START" -NoNewline -ForegroundColor White
+    Write-Host "   [ v$AppVersion ]" -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "--- Автозагрузка ---" -ForegroundColor Green
-    Write-Host "5. Добавить в автозагрузку (Equicord)"
-    Write-Host "6. Добавить в автозагрузку (Vencord)"
+    Write-Host "    ─────────────────────────────────────────" -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "0. Выход" -ForegroundColor Gray
-    Write-Host "========================================="
-    
-    $choice = Read-Host "Выберите действие"
+    Write-Host "    ЗАПУСТИТЬ" -ForegroundColor Cyan
+    Write-Host "      1  Equicord" -NoNewline -ForegroundColor White
+    Write-Host "              2  Vencord" -ForegroundColor White
+    Write-Host ""
+    Write-Host "    ДИАГНОСТИКА" -ForegroundColor Magenta
+    Write-Host "      3  Equicord + лог" -NoNewline -ForegroundColor White
+    Write-Host "        4  Vencord + лог" -ForegroundColor White
+    Write-Host ""
+    Write-Host "    ЗАПУСКАТЬ С СИСТЕМОЙ" -ForegroundColor Green
+    Write-Host "      5  Equicord" -NoNewline -ForegroundColor White
+    Write-Host "              6  Vencord" -ForegroundColor White
+    Write-Host ""
+    Write-Host "    0  Закрыть" -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "    ─────────────────────────────────────────" -ForegroundColor DarkGray
+    Write-Host "    Команда  › " -NoNewline -ForegroundColor Cyan
+    $choice = [Console]::ReadLine()
     
     switch ($choice) {
         "1" { Run-Normal -Mod "Equicord"; exit }

@@ -13,9 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check shell syntax
-        run: bash -n EquiLauncher.sh make_release.sh tests/test_autostart.sh
+        run: bash -n EquiLauncher.sh make_release.sh tests/test_autostart.sh tests/test_update.sh
       - name: Test non-disruptive autostart behavior
         run: bash tests/test_autostart.sh
+      - name: Test update version comparison
+        run: bash tests/test_update.sh
 
   windows:
     runs-on: windows-latest
