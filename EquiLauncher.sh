@@ -10,6 +10,9 @@ CYAN='\033[0;36m'
 GRAY='\033[0;37m'
 NC='\033[0m' # No Color
 
+APP_VERSION="1.3.0"
+RELEASE_API_URL="https://api.github.com/repos/exyyyl/equistart/releases/latest"
+
 # --- OS & Architecture Detection ---
 OS="$(uname -s)"
 ARCH="$(uname -m)"
@@ -53,6 +56,59 @@ download_file() {
         echo -e "${RED}[ERROR] curl or wget is required for downloading.${NC}"
         return 1
     fi
+}
+
+version_is_newer() {
+    local latest="${1#v}" current="${2#v}"
+    awk -v latest="$latest" -v current="$current" 'BEGIN {
+        split(latest, l, "."); split(current, c, ".")
+        for (i = 1; i <= 3; i++) {
+            li = l[i] + 0; ci = c[i] + 0
+            if (li > ci) exit 0
+            if (li < ci) exit 1
+        }
+        exit 1
+    }'
+}
+
+check_for_update() {
+    local metadata latest asset tmp_dir archive new_script answer
+    metadata="$(download_file "$RELEASE_API_URL" /dev/stdout 2>/dev/null)" || return 0
+    latest="$(printf '%s' "$metadata" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"v\{0,1\}\([0-9][0-9.]*\)".*/\1/p' | head -n 1)"
+    [ -n "$latest" ] && version_is_newer "$latest" "$APP_VERSION" || return 0
+
+    printf '\n%s\n' "Доступна новая версия EquiLauncher v$latest (установлена v$APP_VERSION)."
+    printf 'Обновить сейчас? [y/N]: '
+    read -r answer
+    case "$answer" in y|Y|yes|YES|д|Д|да|ДА) ;; *) return 0 ;; esac
+
+    command -v unzip >/dev/null 2>&1 || {
+        echo -e "${RED}[!] Для обновления требуется unzip. Запуск текущей версии.${NC}"
+        return 0
+    }
+    case "$OS" in Darwin) asset="equistart-v$latest-macos.zip" ;; *) asset="equistart-v$latest-linux.zip" ;; esac
+    tmp_dir="$(mktemp -d)" || return 0
+    archive="$tmp_dir/$asset"
+    if ! download_file "https://github.com/exyyyl/equistart/releases/download/v$latest/$asset" "$archive" || ! unzip -q "$archive" -d "$tmp_dir"; then
+        echo -e "${RED}[!] Не удалось скачать обновление. Запуск текущей версии.${NC}"
+        rm -rf "$tmp_dir"
+        return 0
+    fi
+    new_script="$tmp_dir/EquiLauncher.sh"
+    if [ ! -s "$new_script" ]; then
+        echo -e "${RED}[!] Архив обновления повреждён. Запуск текущей версии.${NC}"
+        rm -rf "$tmp_dir"
+        return 0
+    fi
+    chmod +x "$new_script"
+    if ! mv "$new_script" "$SCRIPT_PATH"; then
+        echo -e "${RED}[!] Не удалось заменить файл лаунчера. Запуск текущей версии.${NC}"
+        rm -rf "$tmp_dir"
+        return 0
+    fi
+    rm -rf "$tmp_dir"
+    echo -e "${GREEN}[+] Обновление установлено. Перезапуск...${NC}"
+    exec "$SCRIPT_PATH"
 }
 
 # --- Helper: Kill Discord ---
@@ -339,35 +395,30 @@ elif [ "$1" = "--silent-vencord" ]; then
     exit 0
 fi
 
+check_for_update
+
 # --- Main Interactive Menu Loop ---
 while true; do
     clear
-    echo -e "${YELLOW}"
-    echo " _____ ____  _   _ _____  _____ _______       _____ _______ "
-    echo "|  ____/ __ \| | | |_   _|/ ____|__   __|/\   |  __ \__   __|"
-    echo "| |__ | |  | | | | | | | | (___    | |  /  \  | |__) | | |   "
-    echo "|  __|| |  | | | | | | |  \___ \   | | / /\ \ |  _  /  | |   "
-    echo "| |___| |__| | |_| |_| |_ ____) |  | |/ ____ \| | \ \  | |   "
-    echo "|______\___\_\\___/|_____|_____/   |_/_/    \_\_|  \_\ |_|   "
-    echo -e "                              v1.2.1${NC}"
     echo
-    echo "========================================="
-    echo -e "${CYAN}--- Запуск ---${NC}"
-    echo "1. Запустить Equicord"
-    echo "2. Запустить Vencord"
+    echo -e "    ${YELLOW}EQUI${NC}START${GRAY}   [ v${APP_VERSION} ]${NC}"
     echo
-    echo -e "${YELLOW}--- Отладка ---${NC}"
-    echo "3. Запустить в режиме отладки (Equicord)"
-    echo "4. Запустить в режиме отладки (Vencord)"
+    echo -e "    ${GRAY}─────────────────────────────────────────${NC}"
     echo
-    echo -e "${GREEN}--- Автозагрузка ---${NC}"
-    echo "5. Добавить в автозагрузку (Equicord)"
-    echo "6. Добавить в автозагрузку (Vencord)"
+    echo -e "    ${CYAN}ЗАПУСТИТЬ${NC}"
+    echo    "      1  Equicord              2  Vencord"
     echo
-    echo -e "${GRAY}0. Выход${NC}"
-    echo "========================================="
-    
-    read -p "Выберите действие: " choice
+    echo -e "    ${MAGENTA}ДИАГНОСТИКА${NC}"
+    echo    "      3  Equicord + лог        4  Vencord + лог"
+    echo
+    echo -e "    ${GREEN}ЗАПУСКАТЬ С СИСТЕМОЙ${NC}"
+    echo    "      5  Equicord              6  Vencord"
+    echo
+    echo -e "    ${GRAY}0  Закрыть${NC}"
+    echo
+    echo -e "    ${GRAY}─────────────────────────────────────────${NC}"
+    echo -ne "    ${CYAN}Команда  › ${NC}"
+    read -r choice
     
     case "$choice" in
         1)
