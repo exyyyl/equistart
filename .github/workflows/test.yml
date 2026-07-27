@@ -49,3 +49,20 @@ jobs:
             $errors | Format-List | Out-String | Write-Error
             exit 1
           }
+      - name: Test current installer patch detection
+        shell: powershell
+        run: |
+          $env:EQUILAUNCHER_SOURCE_ONLY = "true"
+          . "$PWD\launcher.ps1"
+
+          $appFolder = Join-Path $env:RUNNER_TEMP "discord-app"
+          $resources = Join-Path $appFolder "resources"
+          New-Item -ItemType Directory -Path $resources -Force | Out-Null
+          New-Item -ItemType File -Path (Join-Path $resources "_app.asar") -Force | Out-Null
+          $index = New-Item -ItemType File -Path (Join-Path $appFolder "index.js") -Force
+          Set-Content -LiteralPath $index.FullName -Value "module.exports = require('./core.asar');"
+
+          if (-not (Test-ModPatch -AppFolder $appFolder -Index $index -LegacyMarker "Vencord")) {
+            Write-Error "Current _app.asar installation was incorrectly reported as unpatched"
+            exit 1
+          }

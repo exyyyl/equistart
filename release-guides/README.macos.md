@@ -1,4 +1,4 @@
-# EquiLauncher 1.3.0 — macOS
+# EquiLauncher 1.3.1 — macOS
 
 ## Быстрый запуск
 

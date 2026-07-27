@@ -10,7 +10,7 @@ CYAN='\033[0;36m'
 GRAY='\033[0;37m'
 NC='\033[0m' # No Color
 
-APP_VERSION="1.3.0"
+APP_VERSION="1.3.1"
 RELEASE_API_URL="https://api.github.com/repos/exyyyl/equistart/releases/latest"
 
 # --- OS & Architecture Detection ---
@@ -41,7 +41,35 @@ find_discord_index() {
         return 1
     fi
     # Search for index.js in modules/discord_desktop_core
-    find "$DISCORD_DIR" -name "index.js" 2>/dev/null | grep "discord_desktop_core" | head -n 1
+    find "$DISCORD_DIR" -name "index.js" 2>/dev/null | grep "discord_desktop_core" | sort -r | head -n 1
+}
+
+is_mod_patched() {
+    local mod="$1"
+    local index_file="$2"
+    local current="$index_file"
+
+    # Current installers keep the original resources/app.asar as _app.asar.
+    while [ "$current" != "/" ]; do
+        if [ -f "$current/resources/_app.asar" ]; then
+            return 0
+        fi
+        current="$(dirname "$current")"
+    done
+
+    if [ "$OS" = "Darwin" ]; then
+        [ -f "/Applications/Discord.app/Contents/Resources/_app.asar" ] ||
+            [ -f "$HOME/Applications/Discord.app/Contents/Resources/_app.asar" ] ||
+            grep -q "$mod" "$index_file"
+    else
+        [ -f "/usr/share/discord/resources/_app.asar" ] ||
+            [ -f "/usr/lib64/discord/resources/_app.asar" ] ||
+            [ -f "/opt/discord/resources/_app.asar" ] ||
+            [ -f "$HOME/.local/share/discord/resources/_app.asar" ] ||
+            [ -f "$HOME/.local/share/flatpak/app/com.discordapp.Discord/current/active/files/discord/resources/_app.asar" ] ||
+            [ -f "/var/lib/flatpak/app/com.discordapp.Discord/current/active/files/discord/resources/_app.asar" ] ||
+            grep -q "$mod" "$index_file"
+    fi
 }
 
 # --- Helper: Download tool ---
@@ -182,7 +210,7 @@ install_equicord() {
         return 1
     fi
 
-    if ! grep -q "Equicord" "$index_file"; then
+    if ! is_mod_patched "Equicord" "$index_file"; then
         echo -e "${MAGENTA}[!] Patch missing. Recovering...${NC}"
         
         local exe=""
@@ -244,7 +272,7 @@ install_vencord() {
         return 1
     fi
 
-    if ! grep -q "Vencord" "$index_file"; then
+    if ! is_mod_patched "Vencord" "$index_file"; then
         echo -e "${MAGENTA}[!] Patch missing. Recovering...${NC}"
         
         if [ "$OS" = "Darwin" ]; then
@@ -297,7 +325,7 @@ install_vencord() {
         echo -e "${GREEN}[+] Status: Patched & Ready${NC}"
     fi
 
-    if { [ "$OS" != "Darwin" ] || grep -q "Vencord" "$index_file"; } && \
+    if { [ "$OS" != "Darwin" ] || is_mod_patched "Vencord" "$index_file"; } && \
        { [ "$non_disruptive" != "true" ] || [ "$discord_was_running" != "true" ]; }; then
         launch_discord
     fi

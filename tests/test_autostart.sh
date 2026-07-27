@@ -29,6 +29,7 @@ launch_discord() { record launch; }
 reset_case() {
     EVENTS=""
     rm -f "$WORK_DIR/VencordInstallerCli-linux"
+    rm -rf "$TEST_DIR/resources"
     printf '%s\n' "$1" > "$TEST_DIR/index.js"
 }
 
@@ -62,6 +63,15 @@ assert_events "kill launch"
 
 # Healthy patch + running Discord at startup: do nothing.
 reset_case "// Vencord"
+DISCORD_RUNNING_STATUS=0
+CONFIRM_STATUS=1
+install_vencord true
+assert_events ""
+
+# Current installer format: _app.asar is authoritative even when index.js has no marker.
+reset_case "module.exports = require('./core.asar');"
+mkdir -p "$TEST_DIR/resources"
+touch "$TEST_DIR/resources/_app.asar"
 DISCORD_RUNNING_STATUS=0
 CONFIRM_STATUS=1
 install_vencord true

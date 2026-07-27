@@ -7,7 +7,7 @@ exit /b
 <# POWERSHELL_CODE #>
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $LogPath = Join-Path (Split-Path $env:SCRIPT_PATH) "EquiLauncher_Debug.log"
-$AppVersion = [version]"1.3.0"
+$AppVersion = [version]"1.3.1"
 $ReleaseApiUrl = "https://api.github.com/repos/exyyyl/equistart/releases/latest"
 
 function Test-LauncherUpdate {
@@ -75,6 +75,16 @@ function Confirm-RestartForRepair {
     return $Result -eq [System.Windows.Forms.DialogResult]::Yes
 }
 
+function Test-ModPatch {
+    param([string]$AppFolder, [System.IO.FileInfo]$Index, [string]$LegacyMarker)
+
+    # Current Vencord/Equilotl installers replace resources/app.asar and keep
+    # the original as _app.asar. Older installers injected a named marker into index.js.
+    $AsarBackup = Join-Path $AppFolder "resources\_app.asar"
+    return (Test-Path -LiteralPath $AsarBackup -PathType Leaf) -or
+        ((Get-Content $Index.FullName -Raw) -match [regex]::Escape($LegacyMarker))
+}
+
 function Install-Equicord {
     param([switch]$NonDisruptive)
     $DiscordWasRunning = [bool](Get-Process -Name "Discord" -ErrorAction SilentlyContinue)
@@ -87,7 +97,7 @@ function Install-Equicord {
     if (-not $Index) { throw "Could not find index.js in Discord modules." }
 
     # 3. Проверка патча
-    if ((Get-Content $Index.FullName -Raw) -notmatch "Equicord") {
+    if (-not (Test-ModPatch -AppFolder $AppFolder -Index $Index -LegacyMarker "Equicord")) {
         Write-Host "[!] Patch missing. Recovering..." -ForegroundColor Magenta
         
         $WorkDir = Join-Path $env:LOCALAPPDATA "EquiLauncher"
@@ -136,7 +146,7 @@ function Install-Vencord {
     if (-not $Index) { throw "Could not find index.js in Discord modules." }
 
     # 3. Проверка патча
-    if ((Get-Content $Index.FullName -Raw) -notmatch "Vencord") {
+    if (-not (Test-ModPatch -AppFolder $AppFolder -Index $Index -LegacyMarker "Vencord")) {
         Write-Host "[!] Patch missing. Recovering..." -ForegroundColor Magenta
         
         $WorkDir = Join-Path $env:LOCALAPPDATA "EquiLauncher"

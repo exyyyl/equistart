@@ -8,9 +8,9 @@
 
 В релизе выберите архив для своей операционной системы:
 
-- `equistart-v1.3.0-windows.zip`
-- `equistart-v1.3.0-macos.zip`
-- `equistart-v1.3.0-linux.zip`
+- `equistart-v1.3.1-windows.zip`
+- `equistart-v1.3.1-macos.zip`
+- `equistart-v1.3.1-linux.zip`
 
 Архивы macOS и Linux содержат один и тот же кроссплатформенный shell-скрипт, но публикуются отдельно, чтобы выбор загрузки был однозначным.
 
