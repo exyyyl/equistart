@@ -53,7 +53,9 @@ jobs:
         shell: powershell
         run: |
           $env:EQUILAUNCHER_SOURCE_ONLY = "true"
-          . "$PWD\launcher.ps1"
+          # Windows PowerShell 5.1 treats UTF-8 without BOM as ANSI when dot-sourcing a file.
+          # Decode explicitly, then dot-source the resulting script block in the current scope.
+          . ([scriptblock]::Create((Get-Content "$PWD\launcher.ps1" -Raw -Encoding UTF8)))
 
           $appFolder = Join-Path $env:RUNNER_TEMP "discord-app"
           $resources = Join-Path $appFolder "resources"
