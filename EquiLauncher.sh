@@ -10,7 +10,7 @@ CYAN='\033[0;36m'
 GRAY='\033[0;37m'
 NC='\033[0m' # No Color
 
-APP_VERSION="1.3.1"
+APP_VERSION="1.3.2"
 RELEASE_API_URL="https://api.github.com/repos/exyyyl/equistart/releases/latest"
 
 # --- OS & Architecture Detection ---
@@ -175,6 +175,35 @@ confirm_restart_for_repair() {
     fi
 }
 
+run_equicord_installer() {
+    local exe="$1"
+
+    if [ "$OS" != "Darwin" ]; then
+        "$exe" -install -branch stable
+        return
+    fi
+
+    local resources_dir="/Applications/Discord.app/Contents/Resources"
+    if [ ! -d "$resources_dir" ] && [ -d "$HOME/Applications/Discord.app/Contents/Resources" ]; then
+        resources_dir="$HOME/Applications/Discord.app/Contents/Resources"
+    fi
+
+    if [ -w "$resources_dir" ]; then
+        "$exe" -install -branch stable
+        return
+    fi
+
+    echo -e "${YELLOW}[!] macOS requires administrator permission to modify Discord.${NC}"
+    osascript - "$exe" "$HOME" <<'APPLESCRIPT'
+on run argv
+    set installerPath to item 1 of argv
+    set userHome to item 2 of argv
+    set commandText to "/usr/bin/env HOME=" & quoted form of userHome & " " & quoted form of installerPath & " -install -branch stable"
+    do shell script commandText with administrator privileges
+end run
+APPLESCRIPT
+}
+
 # --- Helper: Launch Discord ---
 launch_discord() {
     echo -e "${BLUE}[*] Launching Discord...${NC}"
@@ -247,7 +276,19 @@ install_equicord() {
         fi
         
         echo -e "${CYAN}[*] Applying patch...${NC}"
-        "$exe" -install -branch stable
+        if ! run_equicord_installer "$exe"; then
+            echo -e "${RED}[ERROR] Equicord installation failed. Discord was not modified.${NC}"
+            launch_discord
+            return 1
+        fi
+
+        if ! is_mod_patched "Equicord" "$index_file"; then
+            echo -e "${RED}[ERROR] Equicord installer finished, but the patch was not applied.${NC}"
+            echo -e "${YELLOW}[!] Allow your terminal in System Settings > Privacy & Security > App Management,${NC}"
+            echo -e "${YELLOW}    restart the terminal, and try again.${NC}"
+            launch_discord
+            return 1
+        fi
     else
         echo -e "${GREEN}[+] Status: Patched & Ready${NC}"
     fi

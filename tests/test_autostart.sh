@@ -25,6 +25,7 @@ discord_is_running() { return "$DISCORD_RUNNING_STATUS"; }
 confirm_restart_for_repair() { record prompt; return "$CONFIRM_STATUS"; }
 kill_discord() { record kill; }
 launch_discord() { record launch; }
+run_equicord_installer() { record install; }
 
 reset_case() {
     EVENTS=""
@@ -67,6 +68,16 @@ DISCORD_RUNNING_STATUS=0
 CONFIRM_STATUS=1
 install_vencord true
 assert_events ""
+
+# A failed installer must be reported and Discord reopened instead of claiming success.
+reset_case "module.exports = {};"
+DISCORD_RUNNING_STATUS=1
+CONFIRM_STATUS=1
+if install_equicord false; then
+    printf 'FAIL: missing post-install marker was accepted\n' >&2
+    exit 1
+fi
+assert_events "install launch"
 
 # Current installer format: _app.asar is authoritative even when index.js has no marker.
 reset_case "module.exports = require('./core.asar');"
