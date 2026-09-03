@@ -1,4 +1,4 @@
-# EquiLauncher 1.3.2 — Windows
+# EquiLauncher 1.3.3 — Windows
 
 ## Быстрый запуск
 

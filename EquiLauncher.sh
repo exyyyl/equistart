@@ -10,7 +10,7 @@ CYAN='\033[0;36m'
 GRAY='\033[0;37m'
 NC='\033[0m' # No Color
 
-APP_VERSION="1.3.2"
+APP_VERSION="1.3.3"
 RELEASE_API_URL="https://api.github.com/repos/exyyyl/equistart/releases/latest"
 
 # --- OS & Architecture Detection ---
@@ -204,6 +204,44 @@ end run
 APPLESCRIPT
 }
 
+discord_resources_dir() {
+    if [ -d "/Applications/Discord.app/Contents/Resources" ]; then
+        printf '%s\n' "/Applications/Discord.app/Contents/Resources"
+    elif [ -d "$HOME/Applications/Discord.app/Contents/Resources" ]; then
+        printf '%s\n' "$HOME/Applications/Discord.app/Contents/Resources"
+    else
+        return 1
+    fi
+}
+
+ensure_macos_discord_access() {
+    [ "$OS" = "Darwin" ] || return 0
+
+    local resources_dir probe_file owner answer
+    resources_dir="$(discord_resources_dir)" || return 0
+    probe_file="$resources_dir/.equilauncher-access-check-$$"
+
+    if touch "$probe_file" 2>/dev/null; then
+        rm -f "$probe_file"
+        return 0
+    fi
+
+    owner="$(stat -f '%Su' "$resources_dir" 2>/dev/null || true)"
+    if [ "$owner" != "$(id -un)" ]; then
+        # Traditional Unix permissions: the installer can request elevation later.
+        return 0
+    fi
+
+    echo -e "${RED}[ERROR] macOS blocks this terminal from modifying Discord.app.${NC}"
+    echo -e "${YELLOW}[!] Enable App Management for your terminal, restart it, and run EquiLauncher again.${NC}"
+    answer="$(osascript -e 'button returned of (display dialog "macOS запрещает терминалу изменять Discord.app. Разрешите Terminal (или ваш терминал) в разделе «Управление приложениями», полностью перезапустите терминал и повторите запуск EquiLauncher." with title "EquiLauncher — требуется разрешение macOS" buttons {"Позже", "Открыть настройки"} default button "Открыть настройки" with icon caution)' 2>/dev/null || true)"
+    if [ "$answer" = "Открыть настройки" ]; then
+        open "x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles" 2>/dev/null ||
+            open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension" 2>/dev/null || true
+    fi
+    return 1
+}
+
 # --- Helper: Launch Discord ---
 launch_discord() {
     echo -e "${BLUE}[*] Launching Discord...${NC}"
@@ -260,6 +298,12 @@ install_equicord() {
             echo -e "${CYAN}[*] Downloading Equicord installer...${NC}"
             download_file "$url" "$exe" || return 1
             chmod +x "$exe"
+        fi
+
+        # App Management is separate from administrator privileges on modern macOS.
+        # Check it before interrupting an active Discord session.
+        if ! ensure_macos_discord_access; then
+            return 1
         fi
 
         if [ "$discord_was_running" = "true" ]; then

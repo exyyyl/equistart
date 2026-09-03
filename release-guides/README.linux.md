@@ -1,4 +1,4 @@
-# EquiLauncher 1.3.2 — Linux
+# EquiLauncher 1.3.3 — Linux
 
 ## Быстрый запуск
 

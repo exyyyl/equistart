@@ -26,12 +26,14 @@ confirm_restart_for_repair() { record prompt; return "$CONFIRM_STATUS"; }
 kill_discord() { record kill; }
 launch_discord() { record launch; }
 run_equicord_installer() { record install; }
+ensure_macos_discord_access() { return "${MAC_ACCESS_STATUS:-0}"; }
 
 reset_case() {
     EVENTS=""
     rm -f "$WORK_DIR/VencordInstallerCli-linux"
     rm -rf "$TEST_DIR/resources"
     printf '%s\n' "$1" > "$TEST_DIR/index.js"
+    MAC_ACCESS_STATUS=0
 }
 
 assert_events() {
@@ -78,6 +80,17 @@ if install_equicord false; then
     exit 1
 fi
 assert_events "install launch"
+
+# Missing macOS App Management permission must not stop a running Discord.
+reset_case "module.exports = {};"
+DISCORD_RUNNING_STATUS=0
+CONFIRM_STATUS=0
+MAC_ACCESS_STATUS=1
+if install_equicord false; then
+    printf 'FAIL: denied macOS access was accepted\n' >&2
+    exit 1
+fi
+assert_events ""
 
 # Current installer format: _app.asar is authoritative even when index.js has no marker.
 reset_case "module.exports = require('./core.asar');"

@@ -1,4 +1,4 @@
-# EquiLauncher 1.3.2 — macOS
+# EquiLauncher 1.3.3 — macOS
 
 При первой установке или после обновления Discord macOS может запросить пароль администратора. Он нужен только для изменения файлов `Discord.app` в папке `/Applications`; EquiLauncher не получает и не сохраняет пароль.
 

@@ -7,7 +7,7 @@ exit /b
 <# POWERSHELL_CODE #>
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $LogPath = Join-Path (Split-Path $env:SCRIPT_PATH) "EquiLauncher_Debug.log"
-$AppVersion = [version]"1.3.2"
+$AppVersion = [version]"1.3.3"
 $ReleaseApiUrl = "https://api.github.com/repos/exyyyl/equistart/releases/latest"
 
 function Test-LauncherUpdate {
