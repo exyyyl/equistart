@@ -1,6 +1,12 @@
 $ErrorActionPreference = "Stop"
 $RootDir = Split-Path $PSScriptRoot
 
+# The standalone launcher must also load correctly in Windows PowerShell 5.1.
+$LauncherBytes = [IO.File]::ReadAllBytes((Join-Path $RootDir "launcher.ps1"))
+if ($LauncherBytes.Length -lt 3 -or $LauncherBytes[0] -ne 0xEF -or $LauncherBytes[1] -ne 0xBB -or $LauncherBytes[2] -ne 0xBF) {
+    throw "launcher.ps1 must use UTF-8 with BOM for Windows PowerShell 5.1"
+}
+
 foreach ($File in @("launcher.ps1", "EquiLauncher.bat")) {
     $Source = Get-Content (Join-Path $RootDir $File) -Raw -Encoding UTF8
     if ($File -like "*.bat") {

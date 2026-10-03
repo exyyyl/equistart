@@ -1,4 +1,4 @@
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+﻿[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $LogPath = Join-Path $PSScriptRoot "EquiLauncher_Debug.log"
 $AppVersion = [version]"1.3.4"
 $ReleaseApiUrl = "https://api.github.com/repos/exyyyl/equistart/releases/latest"
