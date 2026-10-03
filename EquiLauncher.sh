@@ -10,7 +10,7 @@ CYAN='\033[0;36m'
 GRAY='\033[0;37m'
 NC='\033[0m' # No Color
 
-APP_VERSION="1.3.3"
+APP_VERSION="1.3.4"
 RELEASE_API_URL="https://api.github.com/repos/exyyyl/equistart/releases/latest"
 
 # --- OS & Architecture Detection ---
@@ -433,9 +433,9 @@ run_debug() {
     {
         run_normal "$mod"
     } 2>&1 | tee "$LOG_PATH"
+    local action_status=${PIPESTATUS[0]}
     echo -e "\n${YELLOW}[!] Debug log saved to: $LOG_PATH${NC}"
-    read -n 1 -r -s -p "Press any key to close..."
-    echo
+    return "$action_status"
 }
 
 # --- Autostart Setup ---
@@ -490,8 +490,62 @@ EOF
         echo -e "${GREEN}[+] Done! Desktop Entry created at $AUTOSTART_DESKTOP.${NC}"
     fi
 
-    read -n 1 -r -s -p "Press any key to return to menu..."
-    echo
+}
+
+# --- Interactive screens ---
+show_page() {
+    clear
+    printf '\n    %bEQUI%bSTART%b   [ v%s ]%b\n\n' "$YELLOW" "$NC" "$GRAY" "$APP_VERSION" "$NC"
+    printf '    Главная%s\n' "${1:+ / $1}"
+    printf '    ─────────────────────────────────────────\n\n'
+}
+
+run_menu() {
+    local page="home" choice mod title status
+    while true; do
+        case "$page" in
+            home)
+                show_page ""
+                printf '    1  Запустить Discord\n    2  Диагностика\n    3  Автозагрузка\n\n    0  Закрыть лаунчер\n\n'
+                ;;
+            launch) title="Запуск"; show_page "$title" ;;
+            debug) title="Диагностика"; show_page "$title" ;;
+            startup) title="Автозагрузка"; show_page "$title" ;;
+        esac
+        if [ "$page" != "home" ]; then
+            printf '    1  Equicord\n    2  Vencord\n\n    0  Назад\n\n'
+        fi
+        printf '    Команда  › '
+        read -r choice || return 0
+        if [ "$page" = "home" ]; then
+            case "$choice" in
+                1) page="launch" ;;
+                2) page="debug" ;;
+                3) page="startup" ;;
+                0) return 0 ;;
+            esac
+            continue
+        fi
+        case "$choice" in
+            0) page="home"; continue ;;
+            1) mod="Equicord" ;;
+            2) mod="Vencord" ;;
+            *) continue ;;
+        esac
+        show_page "$title / $mod"
+        status=0
+        case "$page" in
+            launch) run_normal "$mod" || status=$? ;;
+            debug) run_debug "$mod" || status=$? ;;
+            startup) add_startup "$mod" || status=$? ;;
+        esac
+        if [ "$status" -ne 0 ]; then
+            printf '\n    %bДействие завершилось с ошибкой. Подробности выше.%b\n' "$RED" "$NC"
+        fi
+        printf '\n    Нажмите Enter, чтобы вернуться на главную…'
+        read -r choice || return 0
+        page="home"
+    done
 }
 
 # Allow behavior tests to load the functions without starting the menu.
@@ -500,68 +554,14 @@ if [ "${EQUILAUNCHER_SOURCE_ONLY:-false}" = "true" ]; then
 fi
 
 # --- CLI Arguments parsing ---
-if [ "$1" = "--silent" ] || [ "$1" = "--startup" ]; then
+if [ "${1:-}" = "--silent" ] || [ "${1:-}" = "--startup" ]; then
     run_normal "Equicord" true
     exit 0
-elif [ "$1" = "--silent-vencord" ]; then
+elif [ "${1:-}" = "--silent-vencord" ]; then
     run_normal "Vencord" true
     exit 0
 fi
 
 check_for_update
 
-# --- Main Interactive Menu Loop ---
-while true; do
-    clear
-    echo
-    echo -e "    ${YELLOW}EQUI${NC}START${GRAY}   [ v${APP_VERSION} ]${NC}"
-    echo
-    echo -e "    ${GRAY}─────────────────────────────────────────${NC}"
-    echo
-    echo -e "    ${CYAN}ЗАПУСТИТЬ${NC}"
-    echo    "      1  Equicord              2  Vencord"
-    echo
-    echo -e "    ${MAGENTA}ДИАГНОСТИКА${NC}"
-    echo    "      3  Equicord + лог        4  Vencord + лог"
-    echo
-    echo -e "    ${GREEN}ЗАПУСКАТЬ С СИСТЕМОЙ${NC}"
-    echo    "      5  Equicord              6  Vencord"
-    echo
-    echo -e "    ${GRAY}0  Закрыть${NC}"
-    echo
-    echo -e "    ${GRAY}─────────────────────────────────────────${NC}"
-    echo -ne "    ${CYAN}Команда  › ${NC}"
-    read -r choice
-    
-    case "$choice" in
-        1)
-            run_normal "Equicord"
-            exit 0
-            ;;
-        2)
-            run_normal "Vencord"
-            exit 0
-            ;;
-        3)
-            run_debug "Equicord"
-            exit 0
-            ;;
-        4)
-            run_debug "Vencord"
-            exit 0
-            ;;
-        5)
-            add_startup "Equicord"
-            ;;
-        6)
-            add_startup "Vencord"
-            ;;
-        0)
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}[!] Неверный выбор, попробуйте еще раз.${NC}"
-            sleep 1
-            ;;
-    esac
-done
+run_menu

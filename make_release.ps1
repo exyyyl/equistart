@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$Version = "1.3.3"
+$Version = "1.3.4"
 $ReleaseName = "equistart-v$Version"
 
 Write-Host "[*] Creating release v$Version..." -ForegroundColor Cyan

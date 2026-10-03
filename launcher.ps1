@@ -1,6 +1,6 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $LogPath = Join-Path $PSScriptRoot "EquiLauncher_Debug.log"
-$AppVersion = [version]"1.3.3"
+$AppVersion = [version]"1.3.4"
 $ReleaseApiUrl = "https://api.github.com/repos/exyyyl/equistart/releases/latest"
 
 function Test-LauncherUpdate {
@@ -180,8 +180,6 @@ function Run-Normal {
     }
     catch {
         Write-Host "`n[FATAL ERROR]: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "Press any key to close..."
-        [Console]::ReadKey() | Out-Null
     }
 }
 
@@ -199,8 +197,6 @@ function Run-Debug {
     }
     Invoke-Command -ScriptBlock $ScriptBlock -ArgumentList $Mod *>&1 | Tee-Object -FilePath $LogPath
     Write-Host "`n[!] Debug log saved to: $LogPath" -ForegroundColor Yellow
-    Write-Host "Press any key to close..."
-    [Console]::ReadKey() | Out-Null
 }
 
 function Add-Startup {
@@ -232,8 +228,81 @@ function Add-Startup {
     $Shortcut.WindowStyle = 7
     $Shortcut.Save()
     Write-Host "[+] Готово! Ярлык добавлен." -ForegroundColor Green
-    Write-Host "Нажмите любую клавишу для возврата в меню..."
-    [Console]::ReadKey() | Out-Null
+}
+
+function Show-Page {
+    param([string]$Title = "")
+    Clear-Host
+    Write-Host ""
+    Write-Host "    EQUI" -NoNewline -ForegroundColor Yellow
+    Write-Host "START" -NoNewline -ForegroundColor White
+    Write-Host "   [ v$AppVersion ]" -ForegroundColor DarkGray
+    Write-Host ""
+    $Breadcrumb = if ($Title) { "Главная / $Title" } else { "Главная" }
+    Write-Host "    $Breadcrumb" -ForegroundColor Cyan
+    Write-Host "    ─────────────────────────────────────────" -ForegroundColor DarkGray
+    Write-Host ""
+}
+
+function Read-MenuInput {
+    return [Console]::ReadLine()
+}
+
+function Run-Menu {
+    $Page = "home"
+    while ($true) {
+        if ($Page -eq "home") {
+            Show-Page
+            Write-Host "    1  Запустить Discord"
+            Write-Host "    2  Диагностика"
+            Write-Host "    3  Автозагрузка"
+            Write-Host ""
+            Write-Host "    0  Закрыть лаунчер" -ForegroundColor DarkGray
+        }
+        else {
+            $Title = switch ($Page) {
+                "launch" { "Запуск" }
+                "debug" { "Диагностика" }
+                "startup" { "Автозагрузка" }
+            }
+            Show-Page -Title $Title
+            Write-Host "    1  Equicord"
+            Write-Host "    2  Vencord"
+            Write-Host ""
+            Write-Host "    0  Назад" -ForegroundColor DarkGray
+        }
+        Write-Host ""
+        Write-Host "    Команда  › " -NoNewline -ForegroundColor Cyan
+        $Choice = Read-MenuInput
+        if ($null -eq $Choice) { return }
+        if ($Page -eq "home") {
+            switch ($Choice) {
+                "1" { $Page = "launch" }
+                "2" { $Page = "debug" }
+                "3" { $Page = "startup" }
+                "0" { return }
+            }
+            continue
+        }
+        if ($Choice -eq "0") { $Page = "home"; continue }
+        if ($Choice -notin @("1", "2")) { continue }
+        $Mod = if ($Choice -eq "1") { "Equicord" } else { "Vencord" }
+        Show-Page -Title "$Title / $Mod"
+        try {
+            switch ($Page) {
+                "launch" { Run-Normal -Mod $Mod }
+                "debug" { Run-Debug -Mod $Mod }
+                "startup" { Add-Startup -Mod $Mod }
+            }
+        }
+        catch {
+            Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red
+        }
+        Write-Host ""
+        Write-Host "    Нажмите Enter, чтобы вернуться на главную…" -NoNewline -ForegroundColor Cyan
+        if ($null -eq (Read-MenuInput)) { return }
+        $Page = "home"
+    }
 }
 
 if ($env:EQUILAUNCHER_SOURCE_ONLY -eq "true") {
@@ -251,40 +320,4 @@ elseif ($args -contains "-SilentVencord") {
 
 Test-LauncherUpdate
 
-while ($true) {
-    Clear-Host
-    Write-Host ""
-    Write-Host "    EQUI" -NoNewline -ForegroundColor Yellow
-    Write-Host "START" -NoNewline -ForegroundColor White
-    Write-Host "   [ v$AppVersion ]" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "    ─────────────────────────────────────────" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "    ЗАПУСТИТЬ" -ForegroundColor Cyan
-    Write-Host "      1  Equicord" -NoNewline -ForegroundColor White
-    Write-Host "              2  Vencord" -ForegroundColor White
-    Write-Host ""
-    Write-Host "    ДИАГНОСТИКА" -ForegroundColor Magenta
-    Write-Host "      3  Equicord + лог" -NoNewline -ForegroundColor White
-    Write-Host "        4  Vencord + лог" -ForegroundColor White
-    Write-Host ""
-    Write-Host "    ЗАПУСКАТЬ С СИСТЕМОЙ" -ForegroundColor Green
-    Write-Host "      5  Equicord" -NoNewline -ForegroundColor White
-    Write-Host "              6  Vencord" -ForegroundColor White
-    Write-Host ""
-    Write-Host "    0  Закрыть" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "    ─────────────────────────────────────────" -ForegroundColor DarkGray
-    Write-Host "    Команда  › " -NoNewline -ForegroundColor Cyan
-    $choice = [Console]::ReadLine()
-    
-    switch ($choice) {
-        "1" { Run-Normal -Mod "Equicord"; exit }
-        "2" { Run-Normal -Mod "Vencord"; exit }
-        "3" { Run-Debug -Mod "Equicord"; exit }
-        "4" { Run-Debug -Mod "Vencord"; exit }
-        "5" { Add-Startup -Mod "Equicord" }
-        "6" { Add-Startup -Mod "Vencord" }
-        "0" { exit }
-    }
-}
+Run-Menu

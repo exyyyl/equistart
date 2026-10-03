@@ -7,7 +7,7 @@ NC='\033[0m' # No Color
 
 set -euo pipefail
 
-VERSION="1.3.3"
+VERSION="1.3.4"
 RELEASE_NAME="equistart-v$VERSION"
 BUILD_DIR="$(mktemp -d)"
 trap 'rm -rf "$BUILD_DIR"' EXIT

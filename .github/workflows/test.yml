@@ -18,6 +18,8 @@ jobs:
         run: bash tests/test_autostart.sh
       - name: Test update version comparison
         run: bash tests/test_update.sh
+      - name: Test menu navigation
+        run: bash tests/test_navigation.sh
 
   windows:
     runs-on: windows-latest
@@ -32,6 +34,11 @@ jobs:
             [ref]$null,
             [ref]$errors
           ) | Out-Null
+
+          if ($errors) {
+            $errors | Format-List | Out-String | Write-Error
+            exit 1
+          }
 
           # Windows PowerShell 5.1 otherwise reads this UTF-8 file as ANSI.
           $embedded = (Get-Content "EquiLauncher.bat" -Raw -Encoding UTF8) -split [regex]::Escape('<# POWERSHELL_CODE #>'), 2
@@ -71,3 +78,6 @@ jobs:
             Write-Error "Current _app.asar installation was incorrectly reported as unpatched"
             exit 1
           }
+      - name: Test menu navigation
+        shell: powershell
+        run: .\tests\test_navigation.ps1
